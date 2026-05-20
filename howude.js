@@ -5,153 +5,143 @@ const shadowBuffer = document.createElement('canvas');
 const sctx = shadowBuffer.getContext('2d');
 
 const CONFIG = {
-    radius: canvas.width * 2,
-    baseOpacity: 0.2,
-    clickedOpacity: 0.3,
-    color: '255, 255, 255',
-    shadowColor: 'black',
-    smoothSpeed: 0.12,
-    lightHeight: canvas.width * 2,
+    radius: innerWidth / 3,
+    opacity: 0.2,
+    clickOpacity: 0.3,
+    color: '255,255,255',
+    shadowColor: '#000',
+    smooth: 0.12,
+    lightHeight: innerWidth * 2,
     divBrightness: 0
 };
 
-let mouse = { x: 0, y: 0 };
-let isOnPage = false;
-let isClicked = false;
+const mouse = { x: 0, y: 0 };
 
-let currentRadius = 0;
-let currentOpacity = 0;
+let visible = false;
+let clicked = false;
+
+let radius = 0;
+let opacity = 0;
+
 let blockers = [];
 
 // BLOCKERS
 
 function updateBlockers() {
-    const elements = document.querySelectorAll('.shadow-caster');
-    blockers = Array.from(elements).map(el => {
+    blockers = [...document.querySelectorAll('.shadow-caster')].map(el => {
         const r = el.getBoundingClientRect();
-        const left = r.left;
-        const top = r.top;
-        const width = r.width;
-        const height = r.height;
+        const br = Math.min(
+            parseFloat(getComputedStyle(el).borderRadius) || 0,
+            r.width / 2,
+            r.height / 2
+        );
 
         return {
-            left, top,
-            right: left + width,
-            bottom: top + height,
-            width, height,
-            cx: left + width / 2,
-            cy: top + height / 2,
-            borderRadius: parseFloat(getComputedStyle(el).borderRadius) || 0
+            left: r.left,
+            top: r.top,
+            right: r.right,
+            bottom: r.bottom,
+            width: r.width,
+            height: r.height,
+            radius: br
         };
     });
 }
 
-// PATH HELPERS
+// PATH
 
-function pathRoundedRect(c, rect) {
-    const r = Math.min(rect.borderRadius, rect.width / 2, rect.height / 2);
-    const { left:l, top:t, right:rgt, bottom:b } = rect;
+function roundedRectPath(c, b) {
+    const r = b.radius;
 
-    c.beginPath();
-    c.moveTo(l + r, t);
-    c.lineTo(rgt - r, t);
-    c.arcTo(rgt, t, rgt, t + r, r);
-    c.lineTo(rgt, b - r);
-    c.arcTo(rgt, b, rgt - r, b, r);
-    c.lineTo(l + r, b);
-    c.arcTo(l, b, l, b - r, r);
-    c.lineTo(l, t + r);
-    c.arcTo(l, t, l + r, t, r);
+    c.moveTo(b.left + r, b.top);
+    c.lineTo(b.right - r, b.top);
+    c.arcTo(b.right, b.top, b.right, b.top + r, r);
+    c.lineTo(b.right, b.bottom - r);
+    c.arcTo(b.right, b.bottom, b.right - r, b.bottom, r);
+    c.lineTo(b.left + r, b.bottom);
+    c.arcTo(b.left, b.bottom, b.left, b.bottom - r, r);
+    c.lineTo(b.left, b.top + r);
+    c.arcTo(b.left, b.top, b.left + r, b.top, r);
     c.closePath();
 }
 
-// SHADOW PROJECTION
+// SHADOWS
 
-function drawUnifiedShadow(c, mouse, rect, radius) {
+function drawShadow(c, b, lightRadius) {
     const precision = 12;
-    const r = Math.min(rect.borderRadius, rect.width / 2, rect.height / 2);
-    const pts = [];
-    const HALF_PI = Math.PI / 2;
+    const points = [];
 
-    // perimeter (clockwise)
-    for (let i = 0; i <= precision; i++) {
-        let a = (i / precision) * HALF_PI - HALF_PI;
-        pts.push({ x: rect.right - r + Math.cos(a) * r, y: rect.top + r + Math.sin(a) * r });
-    }
-    for (let i = 0; i <= precision; i++) {
-        let a = (i / precision) * HALF_PI;
-        pts.push({ x: rect.right - r + Math.cos(a) * r, y: rect.bottom - r + Math.sin(a) * r });
-    }
-    for (let i = 0; i <= precision; i++) {
-        let a = (i / precision) * HALF_PI + HALF_PI;
-        pts.push({ x: rect.left + r + Math.cos(a) * r, y: rect.bottom - r + Math.sin(a) * r });
-    }
-    for (let i = 0; i <= precision; i++) {
-        let a = (i / precision) * HALF_PI + Math.PI;
-        pts.push({ x: rect.left + r + Math.cos(a) * r, y: rect.top + r + Math.sin(a) * r });
+    const corners = [
+        [b.right - b.radius, b.top + b.radius, -Math.PI / 2],
+        [b.right - b.radius, b.bottom - b.radius, 0],
+        [b.left + b.radius, b.bottom - b.radius, Math.PI / 2],
+        [b.left + b.radius, b.top + b.radius, Math.PI]
+    ];
+
+    // build perimeter
+    for (const [cx, cy, start] of corners) {
+        for (let i = 0; i <= precision; i++) {
+            const a = start + (i / precision) * Math.PI / 2;
+
+            points.push({
+                x: cx + Math.cos(a) * b.radius,
+                y: cy + Math.sin(a) * b.radius
+            });
+        }
     }
 
-    // find silhouette edges
-    const silhouette = [];
+    let run = [];
 
-    for (let i = 0; i < pts.length; i++) {
-        const p1 = pts[i];
-        const p2 = pts[(i + 1) % pts.length];
+    for (let i = 0; i < points.length; i++) {
+        const p1 = points[i];
+        const p2 = points[(i + 1) % points.length];
 
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
 
-        let nx = -dy;
-        let ny = dx;
-        const nl = Math.hypot(nx, ny) || 1;
-        nx /= nl;
-        ny /= nl;
+        const len = Math.hypot(dx, dy) || 1;
+
+        const nx = -dy / len;
+        const ny = dx / len;
 
         const mx = (p1.x + p2.x) / 2;
         const my = (p1.y + p2.y) / 2;
 
-        const lx = mx - mouse.x;
-        const ly = my - mouse.y;
+        const visibleEdge =
+            (mx - mouse.x) * nx + (my - mouse.y) * ny < 0;
 
-        silhouette.push(lx * nx + ly * ny < 0);
-    }
-
-    // extract contiguous silhouette runs
-    let run = [];
-
-    for (let i = 0; i < pts.length; i++) {
-        if (silhouette[i]) {
-            const p1 = pts[i];
-            const p2 = pts[(i + 1) % pts.length];
-            if (run.length === 0) run.push(p1);
+        if (visibleEdge) {
+            if (!run.length) run.push(p1);
             run.push(p2);
         } else if (run.length > 1) {
-            drawShadowRun(c, mouse, run, radius);
+            fillShadowRun(c, run, lightRadius);
             run = [];
         }
     }
 
-    // wraparound case
     if (run.length > 1) {
-        drawShadowRun(c, mouse, run, radius);
+        fillShadowRun(c, run, lightRadius);
     }
 }
 
-function drawShadowRun(c, mouse, run, radius) {
+function fillShadowRun(c, run, lightRadius) {
     const far = run.map(p => {
-        const a = Math.atan2(p.y - mouse.y, p.x - mouse.x);
-        const d = Math.hypot(p.x - mouse.x, p.y - mouse.y);
-        const l = d * (radius / CONFIG.lightHeight);
+        const dx = p.x - mouse.x;
+        const dy = p.y - mouse.y;
+
+        const scale =
+            Math.hypot(dx, dy) * (lightRadius / CONFIG.lightHeight);
+
         return {
-            x: p.x + Math.cos(a) * l,
-            y: p.y + Math.sin(a) * l
+            x: p.x + (dx / Math.hypot(dx, dy)) * scale,
+            y: p.y + (dy / Math.hypot(dx, dy)) * scale
         };
     });
 
-    c.fillStyle = CONFIG.shadowColor;
     c.beginPath();
 
     c.moveTo(run[0].x, run[0].y);
+
     for (let i = 1; i < run.length; i++) {
         c.lineTo(run[i].x, run[i].y);
     }
@@ -164,67 +154,75 @@ function drawShadowRun(c, mouse, run, radius) {
     c.fill();
 }
 
-// ANIMATION LOOP
+// MAIN LOOP
 
 function animate() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     sctx.clearRect(0, 0, shadowBuffer.width, shadowBuffer.height);
 
-    currentRadius += ((isOnPage ? CONFIG.radius : 0) - currentRadius) * CONFIG.smoothSpeed;
-    currentOpacity += ((isOnPage ? (isClicked ? CONFIG.clickedOpacity : CONFIG.baseOpacity) : 0) - currentOpacity) * CONFIG.smoothSpeed;
+    radius += ((visible ? CONFIG.radius : 0) - radius) * CONFIG.smooth;
 
-    if (currentOpacity > 0.005) {
-        // draw light
-        const grad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, currentRadius);
-        grad.addColorStop(0, `rgba(${CONFIG.color}, ${currentOpacity})`);
-        grad.addColorStop(1, `rgba(${CONFIG.color}, 0)`);
+    const targetOpacity =
+        visible
+            ? (clicked ? CONFIG.clickOpacity : CONFIG.opacity)
+            : 0;
+
+    opacity += (targetOpacity - opacity) * CONFIG.smooth;
+
+    if (opacity > 0.005) {
+        // light
+        const grad = ctx.createRadialGradient(
+            mouse.x, mouse.y, 0,
+            mouse.x, mouse.y, radius
+        );
+
+        grad.addColorStop(0, `rgba(${CONFIG.color},${opacity})`);
+        grad.addColorStop(1, `rgba(${CONFIG.color},0)`);
 
         ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(mouse.x, mouse.y, currentRadius, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // brighter light inside blockers
         ctx.save();
+
         ctx.beginPath();
-        for (const b of blockers) {
-            // reuse the rounded rect path as a clip mask
-            const r = Math.min(b.borderRadius, b.width / 2, b.height / 2);
-            ctx.moveTo(b.left + r, b.top);
-            ctx.lineTo(b.right - r, b.top);
-            ctx.arcTo(b.right, b.top, b.right, b.top + r, r);
-            ctx.lineTo(b.right, b.bottom - r);
-            ctx.arcTo(b.right, b.bottom, b.right - r, b.bottom, r);
-            ctx.lineTo(b.left + r, b.bottom);
-            ctx.arcTo(b.left, b.bottom, b.left, b.bottom - r, r);
-            ctx.lineTo(b.left, b.top + r);
-            ctx.arcTo(b.left, b.top, b.left + r, b.top, r);
-            ctx.closePath();
-        }
+        blockers.forEach(b => roundedRectPath(ctx, b));
+
         ctx.clip();
 
-        // draw a second light pass inside the clip at higher opacity
-        const divGrad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, currentRadius);
-        divGrad.addColorStop(0, `rgba(${CONFIG.color}, ${currentOpacity + CONFIG.divBrightness})`);
-        divGrad.addColorStop(1, `rgba(${CONFIG.color}, 0)`);
-        
-        ctx.fillStyle = divGrad;
+        const innerGrad = ctx.createRadialGradient(
+            mouse.x, mouse.y, 0,
+            mouse.x, mouse.y, radius
+        );
+
+        innerGrad.addColorStop(
+            0,
+            `rgba(${CONFIG.color},${opacity + CONFIG.divBrightness})`
+        );
+
+        innerGrad.addColorStop(1, `rgba(${CONFIG.color},0)`);
+
+        ctx.fillStyle = innerGrad;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+
         ctx.restore();
 
-        //process Shadows
-        for (const b of blockers) {
-            drawUnifiedShadow(sctx, mouse, b, currentRadius);
-        }
+        // shadows
+        sctx.fillStyle = CONFIG.shadowColor;
 
-        // cut blocker shapes out of shadow buffer
+        blockers.forEach(b => drawShadow(sctx, b, radius));
+
+        // cut blockers out
         sctx.globalCompositeOperation = 'destination-out';
-        for (const b of blockers) {
-            pathRoundedRect(sctx, b);
-            sctx.fill();
-        }
+
+        sctx.beginPath();
+        blockers.forEach(b => roundedRectPath(sctx, b));
+
+        sctx.fill();
+
         sctx.globalCompositeOperation = 'source-over';
 
-        // erase light from main canvas using shadow buffer
+        // remove light where shadows are
         ctx.globalCompositeOperation = 'destination-out';
         ctx.drawImage(shadowBuffer, 0, 0);
         ctx.globalCompositeOperation = 'source-over';
@@ -232,29 +230,31 @@ function animate() {
 
     requestAnimationFrame(animate);
 }
+
 // EVENTS
 
 function resize() {
-    canvas.width = shadowBuffer.width = window.innerWidth;
-    canvas.height = shadowBuffer.height = window.innerHeight;
+    canvas.width = shadowBuffer.width = innerWidth;
+    canvas.height = shadowBuffer.height = innerHeight;
+
     updateBlockers();
 }
 
-window.addEventListener('resize', resize);
-window.addEventListener('scroll', updateBlockers, { passive: true });
+addEventListener('resize', resize);
+addEventListener('scroll', updateBlockers, { passive: true });
 
-window.addEventListener('mousemove', e => {
+addEventListener('mousemove', e => {
     mouse.x = e.clientX;
     mouse.y = e.clientY;
-    isOnPage = true;
+    visible = true;
 }, { passive: true });
 
-window.addEventListener('mousedown', () => isClicked = true);
-window.addEventListener('mouseup', () => isClicked = false);
+addEventListener('mousedown', () => clicked = true);
+addEventListener('mouseup', () => clicked = false);
 
-window.addEventListener('mouseout', e => {
+addEventListener('mouseout', e => {
     if (!e.relatedTarget || e.relatedTarget.nodeName === 'HTML') {
-        isOnPage = false;
+        visible = false;
     }
 });
 
