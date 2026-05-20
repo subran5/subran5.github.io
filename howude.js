@@ -23,7 +23,7 @@ let currentRadius = 0;
 let currentOpacity = 0;
 let blockers = [];
 
-/* ---------------- BLOCKERS ---------------- */
+// BLOCKERS
 
 function updateBlockers() {
     const elements = document.querySelectorAll('.shadow-caster');
@@ -46,7 +46,7 @@ function updateBlockers() {
     });
 }
 
-/* ---------------- PATH HELPERS ---------------- */
+// PATH HELPERS
 
 function pathRoundedRect(c, rect) {
     const r = Math.min(rect.borderRadius, rect.width / 2, rect.height / 2);
@@ -65,7 +65,7 @@ function pathRoundedRect(c, rect) {
     c.closePath();
 }
 
-/* ---------------- SHADOW PROJECTION ---------------- */
+// SHADOW PROJECTION
 
 function drawUnifiedShadow(c, mouse, rect, radius) {
     const precision = 12;
@@ -73,7 +73,7 @@ function drawUnifiedShadow(c, mouse, rect, radius) {
     const pts = [];
     const HALF_PI = Math.PI / 2;
 
-    // --- Perimeter (clockwise) ---
+    // perimeter (clockwise)
     for (let i = 0; i <= precision; i++) {
         let a = (i / precision) * HALF_PI - HALF_PI;
         pts.push({ x: rect.right - r + Math.cos(a) * r, y: rect.top + r + Math.sin(a) * r });
@@ -91,7 +91,7 @@ function drawUnifiedShadow(c, mouse, rect, radius) {
         pts.push({ x: rect.left + r + Math.cos(a) * r, y: rect.top + r + Math.sin(a) * r });
     }
 
-    // --- Find silhouette edges ---
+    // find silhouette edges
     const silhouette = [];
 
     for (let i = 0; i < pts.length; i++) {
@@ -116,7 +116,7 @@ function drawUnifiedShadow(c, mouse, rect, radius) {
         silhouette.push(lx * nx + ly * ny < 0);
     }
 
-    // --- Extract contiguous silhouette runs ---
+    // extract contiguous silhouette runs
     let run = [];
 
     for (let i = 0; i < pts.length; i++) {
@@ -131,7 +131,7 @@ function drawUnifiedShadow(c, mouse, rect, radius) {
         }
     }
 
-    // Wraparound case
+    // wraparound case
     if (run.length > 1) {
         drawShadowRun(c, mouse, run, radius);
     }
@@ -164,7 +164,7 @@ function drawShadowRun(c, mouse, run, radius) {
     c.fill();
 }
 
-/* ---------------- ANIMATION LOOP ---------------- */
+// ANIMATION LOOP
 
 function animate() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -174,7 +174,7 @@ function animate() {
     currentOpacity += ((isOnPage ? (isClicked ? CONFIG.clickedOpacity : CONFIG.baseOpacity) : 0) - currentOpacity) * CONFIG.smoothSpeed;
 
     if (currentOpacity > 0.005) {
-        // 1. Draw standard background light
+        // draw light
         const grad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, currentRadius);
         grad.addColorStop(0, `rgba(${CONFIG.color}, ${currentOpacity})`);
         grad.addColorStop(1, `rgba(${CONFIG.color}, 0)`);
@@ -184,12 +184,10 @@ function animate() {
         ctx.arc(mouse.x, mouse.y, currentRadius, 0, Math.PI * 2);
         ctx.fill();
 
-        // 2. --- NEW: Brighten the Divs ---
-        // We clip the canvas to the div shapes and draw a brighter/more opaque version of the light
         ctx.save();
         ctx.beginPath();
         for (const b of blockers) {
-            // We reuse the rounded rect path as a clip mask
+            // reuse the rounded rect path as a clip mask
             const r = Math.min(b.borderRadius, b.width / 2, b.height / 2);
             ctx.moveTo(b.left + r, b.top);
             ctx.lineTo(b.right - r, b.top);
@@ -204,8 +202,7 @@ function animate() {
         }
         ctx.clip();
 
-        // Draw a second light pass inside the clip at higher opacity
-        // You can adjust the 0.3 multiplier to make them even brighter
+        // draw a second light pass inside the clip at higher opacity
         const divGrad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, currentRadius);
         divGrad.addColorStop(0, `rgba(${CONFIG.color}, ${currentOpacity + CONFIG.divBrightness})`);
         divGrad.addColorStop(1, `rgba(${CONFIG.color}, 0)`);
@@ -214,12 +211,12 @@ function animate() {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.restore();
 
-        // 3. Process Shadows (Buffer logic remains same)
+        //process Shadows
         for (const b of blockers) {
             drawUnifiedShadow(sctx, mouse, b, currentRadius);
         }
 
-        // Cut blocker shapes out of shadow buffer
+        // cut blocker shapes out of shadow buffer
         sctx.globalCompositeOperation = 'destination-out';
         for (const b of blockers) {
             pathRoundedRect(sctx, b);
@@ -227,7 +224,7 @@ function animate() {
         }
         sctx.globalCompositeOperation = 'source-over';
 
-        // 4. Erase light from main canvas using shadow buffer
+        // erase light from main canvas using shadow buffer
         ctx.globalCompositeOperation = 'destination-out';
         ctx.drawImage(shadowBuffer, 0, 0);
         ctx.globalCompositeOperation = 'source-over';
@@ -235,7 +232,7 @@ function animate() {
 
     requestAnimationFrame(animate);
 }
-/* ---------------- EVENTS ---------------- */
+// EVENTS
 
 function resize() {
     canvas.width = shadowBuffer.width = window.innerWidth;
@@ -261,7 +258,7 @@ window.addEventListener('mouseout', e => {
     }
 });
 
-/* ---------------- INIT ---------------- */
+// INIT
 
 resize();
 animate();
