@@ -9,7 +9,6 @@ body, html {
     flex-direction: column;
 }
 
-/* Title Section */
 .header {
     padding: 40px 20px;
     text-align: center;
@@ -17,7 +16,6 @@ body, html {
     transition: color 0.3s;
 }
 
-/* Center Content with 3 Buttons */
 .main-content {
     flex: 1;
     display: flex;
@@ -40,7 +38,6 @@ body, html {
     gap: 40px;
 }
 
-/* Bottom Info Div */
 .footer {
     padding: 5px 5px;
     text-align: center;
@@ -49,7 +46,6 @@ body, html {
     color: #22223b;
 }
 
-/* The objects that block light */
 .btn {
     padding: 12px 24px;
     text-decoration: none;
@@ -75,6 +71,6 @@ body, html {
     left: 0;
     width: 100%;
     height: 100%;
-    pointer-events: none; /* Let clicks pass through to elements below */
+    pointer-events: none;
     z-index: 1;
 }
