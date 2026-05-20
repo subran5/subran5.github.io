@@ -4,25 +4,24 @@ var bcanvas = document.getElementById("boogieBoard"),
             lastX = 0,
             lastY = 0;
 
-        // --- Configuration ---
+        // config
         bcanvas.width = window.innerWidth * 0.3;
         bcanvas.height = window.innerHeight * 0.4;
 
-        bctx.strokeStyle = "#00ff4c"; // Neon cyan color
+        bctx.strokeStyle = "#00ff4c";
         bctx.lineWidth = 5;
         bctx.lineCap = "round";
         bctx.lineJoin = "round";
         
-        // --- Setup Fade Effect ---
+        // fade effect
         function fadeOut() {
-            // Draw a semi-transparent black rectangle over the whole canvas
-            bctx.fillStyle = "rgba(0, 0, 0, 0.05)"; // 0.05 - 0.1 is good for slow fade
+            bctx.fillStyle = "rgba(0, 0, 0, 0.05)";
             bctx.fillRect(0, 0, bcanvas.width, bcanvas.height);
             requestAnimationFrame(fadeOut);
         }
-        fadeOut(); // Start the fade loop
+        fadeOut();
 
-        // --- Drawing Logic ---
+        // draw logic
         bcanvas.onmousedown = function (e) {
             painting = true;
             [lastX, lastY] = [e.offsetX, e.offsetY];
