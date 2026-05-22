@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        if (localStorage.getItem("loggedIn") !== "true") {
+            window.location.href = "index.html";
+        }
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow Demo</title>
+    <link rel="stylesheet" href="yousa.css">
+</head>
+<body>
+
+    <div class="header">
+        <h1>Secret</h1>
+    </div>
+
+    <div class="main-content">
+
+        <div class="image-container">
+            <img src="binks.jpeg" alt="Jar Jar Binks" style="height: auto; width: 30%; border-radius: 6px" class="shadow-caster dark">
+        </div>
+
+        <div class="button-group">
+            <a href="index.html" class="btn shadow-caster">Go Home</a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>subrans</p>
+    </div>
+
+    <canvas id="cursorCanvas"></canvas>
+    <script src="howude.js"></script>
+
+</body>
+</html>
