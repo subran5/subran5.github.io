@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow Demo</title>
+    <link rel="stylesheet" href="yousa.css">
+</head>
+<body>
+
+    <div class="header">
+        <h1>Login</h1>
+    </div>
+
+    <div class="main-content">
+
+        <div class="input-box shadow-caster">
+            <input type="password" placeholder = "password" id="pw">
+
+            <script>
+                const PASSWORD = "secret";
+
+                function login() {
+                    const input = document.getElementById("pw").value;
+
+                    if (input === PASSWORD) {
+                        localStorage.setItem("loggedIn", "true");
+                        window.location.href = "delta.html";
+                    } else {
+                        alert("Wrong password");
+                    }
+                }
+            </script>
+        </div>
+
+        <div class="button-group">
+            <a onclick="login()" class = "btn shadow-caster">Login</a>
+        </div>
+        
+        <div class="button-group">
+            
+            <a href="index.html" class="btn shadow-caster">Go back</a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>subrans</p>
+    </div>
+
+    <canvas id="cursorCanvas"></canvas>
+    <script src="howude.js"></script>
+
+</body>
+</html>
